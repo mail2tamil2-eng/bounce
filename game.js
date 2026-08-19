@@ -31,8 +31,9 @@
   const LEVEL_BONUS = 200;
 
   const COLORS = {
-    brickA: "#b5432a",
-    brickB: "#8f3220",
+    sky: "#6ecbf0",
+    brickA: "#e0662f",
+    brickB: "#c94f1f",
     mortar: "#3a1710",
     spike: "#e8e8e8",
     spikeBase: "#555",
@@ -48,7 +49,7 @@
   };
 
   let grid, levelWidth, levelIndex, startCol, startRow;
-  let ball, vx, vy, stretching, cameraX;
+  let ball, vx, vy, stretching, cameraX, launched;
   let score, lives, running, paused, state;
   let input = { left: false, right: false, stretch: false };
   let lastTime = 0;
@@ -80,6 +81,7 @@
     vx = 0;
     vy = 0;
     stretching = false;
+    launched = false;
     cameraX = 0;
     updateCamera();
     levelEl.textContent = `LEVEL ${index + 1}`;
@@ -91,6 +93,7 @@
     vx = 0;
     vy = 0;
     stretching = false;
+    launched = false;
     updateCamera();
   }
 
@@ -270,6 +273,14 @@
   function update(dt) {
     if (paused || !running) return;
 
+    if (!launched) {
+      if (input.left || input.right || input.stretch) {
+        launched = true;
+      } else {
+        return; // ball hangs in place until the player first acts
+      }
+    }
+
     stretching = input.stretch;
     const { hw, hh } = currentHalfExtents();
 
@@ -385,7 +396,7 @@
   }
 
   function draw() {
-    ctx.fillStyle = "#2a1610";
+    ctx.fillStyle = COLORS.sky;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();

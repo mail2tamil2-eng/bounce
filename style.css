@@ -1,8 +1,8 @@
 :root {
   --bezel: #2b2b2b;
   --shell: #1c1c1e;
-  --screen-bg: #2a1610;
-  --hud-fg: #ffd76a;
+  --screen-bg: #6ecbf0;
+  --hud-fg: #fffaf0;
   --accent: #d94f2b;
 }
 
@@ -74,7 +74,9 @@ body {
   font-size: 11px;
   padding: 2px 4px 6px;
   letter-spacing: 0.5px;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.6);
+  text-shadow:
+    -1px -1px 0 rgba(0,0,0,0.55), 1px -1px 0 rgba(0,0,0,0.55),
+    -1px 1px 0 rgba(0,0,0,0.55), 1px 1px 0 rgba(0,0,0,0.55);
 }
 
 .lives {
