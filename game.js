@@ -22,7 +22,7 @@
 
   const GRAVITY = 900; // px/s^2
   const MAX_FALL = 620; // px/s
-  const JUMP_VELOCITY = -430; // px/s, applied when the player presses jump while grounded
+  const JUMP_VELOCITY = -430; // px/s, applied on every jump press - works mid-air too
   const SPRING_VELOCITY = -680; // px/s, spring pad boost (automatic on contact)
   const MOVE_SPEED = 160; // px/s
   const STEP = CELL * 0.5; // collision sub-step, stays under one cell
@@ -285,7 +285,7 @@
     stretching = input.stretch;
     const { hw, hh } = currentHalfExtents();
 
-    if (jumpQueued && grounded) {
+    if (jumpQueued) {
       vy = JUMP_VELOCITY;
       grounded = false;
     }
