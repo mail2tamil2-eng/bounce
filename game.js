@@ -8,17 +8,23 @@
   const overlayTitle = overlay.querySelector(".overlay-title");
   const overlaySub = overlay.querySelector(".overlay-sub");
   const pauseBtn = document.getElementById("pauseBtn");
+  const stretchBtn = document.getElementById("stretchBtn");
 
-  const GRID_W = 12;
+  const VIEW_COLS = 12;
   const GRID_H = 16;
-  const CELL = canvas.width / GRID_W;
-  const RADIUS = CELL * 0.34;
+  const CELL = canvas.width / VIEW_COLS;
+
+  const NORMAL_HALF_W = CELL * 0.32;
+  const NORMAL_HALF_H = CELL * 0.32;
+  const STRETCH_HALF_W = CELL * 0.16;
+  const STRETCH_HALF_H = CELL * 0.46;
 
   const GRAVITY = 900; // px/s^2
   const MAX_FALL = 620; // px/s
   const BOUNCE_VELOCITY = -430; // px/s, normal landing bounce
   const SPRING_VELOCITY = -680; // px/s, spring pad boost
-  const MOVE_SPEED = 150; // px/s
+  const MOVE_SPEED = 160; // px/s
+  const STEP = CELL * 0.5; // collision sub-step, stays under one cell
 
   const START_LIVES = 3;
   const COIN_SCORE = 50;
@@ -36,25 +42,33 @@
     coinShine: "#fff6cf",
     ball: "#e0342a",
     ballShine: "#ff8f7a",
+    gate: "#2ecc71",
+    gateDark: "#1c8c4e",
+    squeeze: "#c9c9c9",
   };
 
-  let grid, levelIndex, ball, vx, vy, score, lives, running, paused, state;
-  let input = { left: false, right: false };
+  let grid, levelWidth, levelIndex, startCol, startRow;
+  let ball, vx, vy, stretching, cameraX;
+  let score, lives, running, paused, state;
+  let input = { left: false, right: false, stretch: false };
   let lastTime = 0;
   let stateTimer = 0;
 
   function isSolid(tile) {
-    return tile === "#" || tile === "F";
+    if (tile === "#" || tile === "F") return true;
+    if (tile === "N") return !stretching;
+    return false;
   }
 
   function loadLevel(index) {
     levelIndex = index;
-    const rows = LEVELS[index];
-    grid = rows.map((row) => row.split(""));
-    let startCol = 1;
-    let startRow = 1;
+    const data = LEVELS[index];
+    levelWidth = data.width;
+    grid = data.grid.map((row) => row.slice());
+    startCol = 2;
+    startRow = 13;
     for (let r = 0; r < GRID_H; r++) {
-      for (let c = 0; c < GRID_W; c++) {
+      for (let c = 0; c < levelWidth; c++) {
         if (grid[r][c] === "B") {
           startCol = c;
           startRow = r;
@@ -65,35 +79,19 @@
     ball = { x: startCol * CELL + CELL / 2, y: startRow * CELL + CELL / 2 };
     vx = 0;
     vy = 0;
+    stretching = false;
+    cameraX = 0;
+    updateCamera();
     levelEl.textContent = `LEVEL ${index + 1}`;
   }
 
   function respawnBall() {
-    const rows = LEVELS[levelIndex];
-    let startCol = 1;
-    let startRow = 1;
-    for (let r = 0; r < GRID_H; r++) {
-      for (let c = 0; c < GRID_W; c++) {
-        if (rows[r][c] === "B") {
-          startCol = c;
-          startRow = r;
-        }
-      }
-    }
     ball.x = startCol * CELL + CELL / 2;
     ball.y = startRow * CELL + CELL / 2;
     vx = 0;
     vy = 0;
-  }
-
-  function coinsRemaining() {
-    let n = 0;
-    for (let r = 0; r < GRID_H; r++) {
-      for (let c = 0; c < GRID_W; c++) {
-        if (grid[r][c] === "C") n++;
-      }
-    }
-    return n;
+    stretching = false;
+    updateCamera();
   }
 
   function updateLives() {
@@ -120,36 +118,38 @@
   }
 
   function tileAt(col, row) {
-    if (row < 0) return "#";
-    if (row >= GRID_H || col < 0 || col >= GRID_W) return "#";
+    if (row < 0) return "#"; // ceiling cap
+    if (row >= GRID_H) return "."; // below the floor: let pits fall through to death
+    if (col < 0 || col >= levelWidth) return "#"; // side walls
     return grid[row][col];
   }
 
-  // Sub-step size for collision sweeps: must stay comfortably under one
-  // cell so a fast-falling ball can never skip clean through a
-  // single-row-thick platform or floor in one frame.
-  const STEP = CELL * 0.5;
+  function currentHalfExtents() {
+    return stretching
+      ? { hw: STRETCH_HALF_W, hh: STRETCH_HALF_H }
+      : { hw: NORMAL_HALF_W, hh: NORMAL_HALF_H };
+  }
 
-  function moveXStep(dx) {
+  function moveXStep(dx, hw, hh) {
     ball.x += dx;
-    const top = ball.y - RADIUS + 1;
-    const bottom = ball.y + RADIUS - 1;
+    const top = ball.y - hh + 1;
+    const bottom = ball.y + hh - 1;
     const rTop = Math.floor(top / CELL);
     const rBottom = Math.floor(bottom / CELL);
     if (dx > 0) {
-      const col = Math.floor((ball.x + RADIUS) / CELL);
+      const col = Math.floor((ball.x + hw) / CELL);
       for (let r = rTop; r <= rBottom; r++) {
         if (isSolid(tileAt(col, r))) {
-          ball.x = col * CELL - RADIUS;
+          ball.x = col * CELL - hw;
           vx = 0;
           return true;
         }
       }
-    } else {
-      const col = Math.floor((ball.x - RADIUS) / CELL);
+    } else if (dx < 0) {
+      const col = Math.floor((ball.x - hw) / CELL);
       for (let r = rTop; r <= rBottom; r++) {
         if (isSolid(tileAt(col, r))) {
-          ball.x = (col + 1) * CELL + RADIUS;
+          ball.x = (col + 1) * CELL + hw;
           vx = 0;
           return true;
         }
@@ -158,27 +158,27 @@
     return false;
   }
 
-  function moveYStep(dy) {
+  function moveYStep(dy, hw, hh) {
     ball.y += dy;
-    const left = ball.x - RADIUS + 1;
-    const right = ball.x + RADIUS - 1;
+    const left = ball.x - hw + 1;
+    const right = ball.x + hw - 1;
     const cLeft = Math.floor(left / CELL);
     const cRight = Math.floor(right / CELL);
     if (dy > 0) {
-      const row = Math.floor((ball.y + RADIUS) / CELL);
+      const row = Math.floor((ball.y + hh) / CELL);
       for (let c = cLeft; c <= cRight; c++) {
         const tile = tileAt(c, row);
         if (isSolid(tile)) {
-          ball.y = row * CELL - RADIUS;
+          ball.y = row * CELL - hh;
           vy = tile === "F" ? SPRING_VELOCITY : BOUNCE_VELOCITY;
           return true;
         }
       }
-    } else {
-      const row = Math.floor((ball.y - RADIUS) / CELL);
+    } else if (dy < 0) {
+      const row = Math.floor((ball.y - hh) / CELL);
       for (let c = cLeft; c <= cRight; c++) {
         if (isSolid(tileAt(c, row))) {
-          ball.y = (row + 1) * CELL + RADIUS;
+          ball.y = (row + 1) * CELL + hh;
           vy = 0;
           return true;
         }
@@ -187,43 +187,54 @@
     return false;
   }
 
-  function moveX(dx) {
+  function moveX(dx, hw, hh) {
     if (dx === 0) return;
     const steps = Math.max(1, Math.ceil(Math.abs(dx) / STEP));
     const stepDx = dx / steps;
     for (let i = 0; i < steps; i++) {
-      if (moveXStep(stepDx)) break;
+      if (moveXStep(stepDx, hw, hh)) break;
     }
   }
 
-  function moveY(dy) {
+  function moveY(dy, hw, hh) {
     if (dy === 0) return;
     const steps = Math.max(1, Math.ceil(Math.abs(dy) / STEP));
     const stepDy = dy / steps;
     for (let i = 0; i < steps; i++) {
-      if (moveYStep(stepDy)) break;
+      if (moveYStep(stepDy, hw, hh)) break;
     }
   }
 
-  function checkPickupsAndHazards() {
-    const cMin = Math.floor((ball.x - RADIUS) / CELL);
-    const cMax = Math.floor((ball.x + RADIUS) / CELL);
-    const rMin = Math.floor((ball.y - RADIUS) / CELL);
-    const rMax = Math.floor((ball.y + RADIUS) / CELL);
-    let hit = false;
+  function checkPickupsAndHazards(hw, hh) {
+    const cMin = Math.floor((ball.x - hw) / CELL);
+    const cMax = Math.floor((ball.x + hw) / CELL);
+    const rMin = Math.floor((ball.y - hh) / CELL);
+    const rMax = Math.floor((ball.y + hh) / CELL);
+    let hazard = false;
+    let goal = false;
     for (let r = rMin; r <= rMax; r++) {
       for (let c = cMin; c <= cMax; c++) {
-        const tile = tileAt(c, r);
+        if (r < 0 || r >= GRID_H || c < 0 || c >= levelWidth) continue;
+        const tile = grid[r][c];
         if (tile === "C") {
           grid[r][c] = ".";
           score += COIN_SCORE;
           updateScore();
         } else if (tile === "X") {
-          hit = true;
+          hazard = true;
+        } else if (tile === "G") {
+          goal = true;
         }
       }
     }
-    return hit;
+    return { hazard, goal };
+  }
+
+  function updateCamera() {
+    const viewW = VIEW_COLS * CELL;
+    const levelWidthPx = levelWidth * CELL;
+    cameraX = ball.x - viewW / 2;
+    cameraX = Math.max(0, Math.min(cameraX, Math.max(0, levelWidthPx - viewW)));
   }
 
   function loseLife() {
@@ -259,27 +270,32 @@
   function update(dt) {
     if (paused || !running) return;
 
+    stretching = input.stretch;
+    const { hw, hh } = currentHalfExtents();
+
     vy += GRAVITY * dt;
     if (vy > MAX_FALL) vy = MAX_FALL;
-    vx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    vx *= MOVE_SPEED;
+    vx = ((input.right ? 1 : 0) - (input.left ? 1 : 0)) * MOVE_SPEED;
 
-    moveX(vx * dt);
-    moveY(vy * dt);
+    moveX(vx * dt, hw, hh);
+    moveY(vy * dt, hw, hh);
 
-    if (checkPickupsAndHazards()) {
+    const result = checkPickupsAndHazards(hw, hh);
+    if (result.hazard) {
       loseLife();
       return;
     }
-
-    if (ball.y - RADIUS > canvas.height) {
-      loseLife();
-      return;
-    }
-
-    if (coinsRemaining() === 0) {
+    if (result.goal) {
       levelComplete();
+      return;
     }
+
+    if (ball.y - hh > canvas.height) {
+      loseLife();
+      return;
+    }
+
+    updateCamera();
   }
 
   function drawBrick(x, y, size, alt) {
@@ -336,12 +352,50 @@
     ctx.fill();
   }
 
+  function drawSqueezeGate(x, y, size) {
+    ctx.fillStyle = COLORS.squeeze;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + size * 0.4, y);
+    ctx.lineTo(x + size * 0.15, y + size / 2);
+    ctx.lineTo(x + size * 0.4, y + size);
+    ctx.lineTo(x, y + size);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x + size, y);
+    ctx.lineTo(x + size * 0.6, y);
+    ctx.lineTo(x + size * 0.85, y + size / 2);
+    ctx.lineTo(x + size * 0.6, y + size);
+    ctx.lineTo(x + size, y + size);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawGoal(x, y, size) {
+    ctx.fillStyle = COLORS.gateDark;
+    ctx.fillRect(x + size * 0.35, y - size * 0.6, size * 0.15, size * 1.6);
+    ctx.fillStyle = COLORS.gate;
+    ctx.beginPath();
+    ctx.moveTo(x + size * 0.5, y - size * 0.55);
+    ctx.lineTo(x + size * 1.05, y - size * 0.3);
+    ctx.lineTo(x + size * 0.5, y - size * 0.05);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   function draw() {
     ctx.fillStyle = "#2a1610";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    ctx.save();
+    ctx.translate(-cameraX, 0);
+
+    const colStart = Math.max(0, Math.floor(cameraX / CELL) - 1);
+    const colEnd = Math.min(levelWidth - 1, colStart + VIEW_COLS + 2);
+
     for (let r = 0; r < GRID_H; r++) {
-      for (let c = 0; c < GRID_W; c++) {
+      for (let c = colStart; c <= colEnd; c++) {
         const tile = grid[r][c];
         const x = c * CELL;
         const y = r * CELL;
@@ -353,22 +407,29 @@
           drawSpring(x, y, CELL);
         } else if (tile === "C") {
           drawCoin(x, y, CELL);
+        } else if (tile === "N") {
+          drawSqueezeGate(x, y, CELL);
+        } else if (tile === "G") {
+          drawGoal(x, y, CELL);
         }
       }
     }
 
-    if (running || state === "paused") {
+    if (running || paused) {
+      const { hw, hh } = currentHalfExtents();
       const grad = ctx.createRadialGradient(
-        ball.x - RADIUS * 0.3, ball.y - RADIUS * 0.3, 1,
-        ball.x, ball.y, RADIUS
+        ball.x - hw * 0.3, ball.y - hh * 0.3, 1,
+        ball.x, ball.y, Math.max(hw, hh)
       );
       grad.addColorStop(0, COLORS.ballShine);
       grad.addColorStop(1, COLORS.ball);
       ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y, RADIUS, 0, Math.PI * 2);
+      ctx.ellipse(ball.x, ball.y, hw, hh, 0, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    ctx.restore();
   }
 
   function startGame() {
@@ -394,7 +455,7 @@
     if (!running) return;
     paused = !paused;
     state = paused ? "paused" : "playing";
-    pauseBtn.textContent = paused ? "▶" : "⏸";
+    pauseBtn.textContent = paused ? "▶ Resume" : "⏸ Pause";
     if (paused) {
       showOverlay("PAUSED", "Tap to resume");
     } else {
@@ -443,11 +504,20 @@
       input.right = true;
       e.preventDefault();
     }
+    if (e.code === "ArrowUp" || e.code === "KeyW") {
+      input.stretch = true;
+      stretchBtn.classList.add("active");
+      e.preventDefault();
+    }
   }
 
   function handleKeyUp(e) {
     if (e.code === "ArrowLeft" || e.code === "KeyA") input.left = false;
     if (e.code === "ArrowRight" || e.code === "KeyD") input.right = false;
+    if (e.code === "ArrowUp" || e.code === "KeyW") {
+      input.stretch = false;
+      stretchBtn.classList.remove("active");
+    }
   }
 
   document.addEventListener("keydown", handleKey);
@@ -480,6 +550,29 @@
     btn.addEventListener("mouseleave", setOff);
   });
 
+  (function setupStretchButton() {
+    const setOn = (e) => {
+      e.preventDefault();
+      if (!running) {
+        startGame();
+        return;
+      }
+      input.stretch = true;
+      stretchBtn.classList.add("active");
+    };
+    const setOff = (e) => {
+      e.preventDefault();
+      input.stretch = false;
+      stretchBtn.classList.remove("active");
+    };
+    stretchBtn.addEventListener("touchstart", setOn, { passive: false });
+    stretchBtn.addEventListener("touchend", setOff, { passive: false });
+    stretchBtn.addEventListener("touchcancel", setOff, { passive: false });
+    stretchBtn.addEventListener("mousedown", setOn);
+    stretchBtn.addEventListener("mouseup", setOff);
+    stretchBtn.addEventListener("mouseleave", setOff);
+  })();
+
   running = false;
   paused = false;
   state = "start";
@@ -489,7 +582,7 @@
   updateScore();
   updateLives();
   draw();
-  showOverlay("BOUNCE", "Tap or press a key to start");
+  showOverlay("BOUNCE", "Tap ◀▶ to move, hold ↕ to stretch through gaps");
   requestAnimationFrame((t) => {
     lastTime = t;
     requestAnimationFrame(loop);

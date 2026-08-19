@@ -170,10 +170,21 @@ canvas {
     inset 0 1px 1px rgba(255,255,255,0.15);
 }
 
-.pad.center {
-  width: 48px;
+.pad.stretch {
+  width: 56px;
+  background: linear-gradient(160deg, var(--accent), #7a2e18);
+  font-size: 20px;
+}
+
+.pad.stretch.active {
+  background: linear-gradient(160deg, #ffb35c, var(--accent));
+}
+
+.pad.pause {
+  width: 130px;
+  height: 40px;
+  font-size: 13px;
   background: linear-gradient(160deg, #5a5a5e, #2c2c2e);
-  font-size: 16px;
 }
 
 .soft-keys {
