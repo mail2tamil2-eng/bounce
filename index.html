@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#7a2e18" />
+<title>Bounce</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="phone">
+    <div class="phone-top">
+      <span class="signal">NOKIA</span>
+      <span class="battery">🔋</span>
+    </div>
+
+    <div class="screen-bezel">
+      <div class="screen">
+        <div class="hud">
+          <span id="level">LEVEL 1</span>
+          <span id="lives" class="lives"></span>
+          <span id="score">00000</span>
+        </div>
+        <canvas id="game" width="216" height="288"></canvas>
+        <div id="overlay" class="overlay">
+          <div class="overlay-title">BOUNCE</div>
+          <div class="overlay-sub">Tap or press a key to start</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="pad-row">
+        <button class="pad left" data-dir="left" aria-label="Left">◀</button>
+        <button class="pad center" id="pauseBtn" aria-label="Pause">⏸</button>
+        <button class="pad right" data-dir="right" aria-label="Right">▶</button>
+      </div>
+    </div>
+
+    <div class="soft-keys">
+      <span>Menu</span>
+      <span>Exit</span>
+    </div>
+  </div>
+
+  <script src="levels.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
