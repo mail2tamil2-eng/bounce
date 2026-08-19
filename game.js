@@ -20,6 +20,10 @@
   const STRETCH_HALF_W = CELL * 0.16;
   const STRETCH_HALF_H = CELL * 0.46;
 
+  const BIG_SCALE = 1.35;
+  const SMALL_SCALE = 0.55;
+  const NORMAL_SCALE = 1;
+
   const GRAVITY = 900; // px/s^2
   const MAX_FALL = 620; // px/s
   const JUMP_VELOCITY = -430; // px/s, applied on every jump press - works mid-air too
@@ -47,10 +51,12 @@
     gate: "#2ecc71",
     gateDark: "#1c8c4e",
     squeeze: "#c9c9c9",
+    ringBig: "#2ecc9c",
+    ringSmall: "#c95ee0",
   };
 
   let grid, levelWidth, levelIndex, startCol, startRow;
-  let ball, vx, vy, stretching, cameraX, grounded, jumpQueued;
+  let ball, vx, vy, stretching, sizeScale, cameraX, grounded, jumpQueued;
   let score, lives, running, paused, state;
   let input = { left: false, right: false, stretch: false };
   let lastTime = 0;
@@ -82,6 +88,7 @@
     vx = 0;
     vy = 0;
     stretching = false;
+    sizeScale = NORMAL_SCALE;
     grounded = false;
     jumpQueued = false;
     cameraX = 0;
@@ -95,6 +102,7 @@
     vx = 0;
     vy = 0;
     stretching = false;
+    sizeScale = NORMAL_SCALE;
     grounded = false;
     jumpQueued = false;
     updateCamera();
@@ -131,9 +139,10 @@
   }
 
   function currentHalfExtents() {
-    return stretching
+    const base = stretching
       ? { hw: STRETCH_HALF_W, hh: STRETCH_HALF_H }
       : { hw: NORMAL_HALF_W, hh: NORMAL_HALF_H };
+    return { hw: base.hw * sizeScale, hh: base.hh * sizeScale };
   }
 
   function moveXStep(dx, hw, hh) {
@@ -236,6 +245,12 @@
           hazard = true;
         } else if (tile === "G") {
           goal = true;
+        } else if (tile === "R") {
+          grid[r][c] = ".";
+          sizeScale = BIG_SCALE;
+        } else if (tile === "S") {
+          grid[r][c] = ".";
+          sizeScale = SMALL_SCALE;
         }
       }
     }
@@ -391,6 +406,22 @@
     ctx.fill();
   }
 
+  function drawRing(x, y, size, big) {
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    const r = size * (big ? 0.46 : 0.3);
+    ctx.strokeStyle = big ? COLORS.ringBig : COLORS.ringSmall;
+    ctx.lineWidth = big ? 5 : 3.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#ffffffaa";
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   function drawGoal(x, y, size) {
     ctx.fillStyle = COLORS.gateDark;
     ctx.fillRect(x + size * 0.35, y - size * 0.6, size * 0.15, size * 1.6);
@@ -430,6 +461,10 @@
           drawSqueezeGate(x, y, CELL);
         } else if (tile === "G") {
           drawGoal(x, y, CELL);
+        } else if (tile === "R") {
+          drawRing(x, y, CELL, true);
+        } else if (tile === "S") {
+          drawRing(x, y, CELL, false);
         }
       }
     }

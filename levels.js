@@ -10,6 +10,8 @@
 //   X  spike (hazard, not solid — the ball passes through it and gets hurt)
 //   N  narrow squeeze gate: solid UNLESS the ball is stretched
 //   G  goal gate — touch it to clear the level
+//   R  grow ring — passing through makes the ball bigger
+//   S  shrink ring — passing through makes the ball smaller
 //   B  ball start position (cleared to '.' once loaded)
 
 const GRID_H = 16;
@@ -54,6 +56,7 @@ function squeezeGate(g, col, gapTopRow, gapRows) {
 const LEVELS = [
   buildLevel(40, (g) => {
     set(g, 13, 2, "B");
+    set(g, 14, 4, "R");
     set(g, 13, 6, "C");
     set(g, 13, 10, "C");
     set(g, 14, 15, "X");
@@ -61,6 +64,7 @@ const LEVELS = [
     set(g, 14, 22, "F");
     set(g, 13, 26, "C");
     squeezeGate(g, 30, 8, 6);
+    set(g, 14, 32, "S");
     set(g, 13, 33, "C");
     set(g, 14, 35, "X");
     set(g, 13, 37, "C");
@@ -68,6 +72,7 @@ const LEVELS = [
   }),
   buildLevel(52, (g) => {
     set(g, 13, 2, "B");
+    set(g, 14, 3, "R");
     set(g, 13, 5, "C");
     set(g, 14, 8, "X");
     pit(g, 11, 12);
@@ -81,12 +86,14 @@ const LEVELS = [
     set(g, 13, 37, "C");
     squeezeGate(g, 40, 8, 5);
     set(g, 13, 43, "C");
+    set(g, 14, 45, "S");
     set(g, 14, 46, "F");
     set(g, 13, 48, "C");
     set(g, 12, 50, "G");
   }),
   buildLevel(64, (g) => {
     set(g, 13, 2, "B");
+    set(g, 14, 3, "R");
     set(g, 13, 5, "C");
     pit(g, 8, 9);
     set(g, 14, 13, "X");
@@ -99,6 +106,7 @@ const LEVELS = [
     set(g, 13, 34, "C");
     squeezeGate(g, 38, 6, 4);
     set(g, 13, 41, "C");
+    set(g, 14, 42, "S");
     pit(g, 44, 45);
     set(g, 14, 49, "F");
     squeezeGate(g, 53, 8, 4);
