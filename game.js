@@ -49,7 +49,7 @@
   };
 
   let grid, levelWidth, levelIndex, startCol, startRow;
-  let ball, vx, vy, stretching, cameraX, launched;
+  let ball, vx, vy, stretching, cameraX;
   let score, lives, running, paused, state;
   let input = { left: false, right: false, stretch: false };
   let lastTime = 0;
@@ -81,7 +81,6 @@
     vx = 0;
     vy = 0;
     stretching = false;
-    launched = false;
     cameraX = 0;
     updateCamera();
     levelEl.textContent = `LEVEL ${index + 1}`;
@@ -93,7 +92,6 @@
     vx = 0;
     vy = 0;
     stretching = false;
-    launched = false;
     updateCamera();
   }
 
@@ -272,14 +270,6 @@
 
   function update(dt) {
     if (paused || !running) return;
-
-    if (!launched) {
-      if (input.left || input.right || input.stretch) {
-        launched = true;
-      } else {
-        return; // ball hangs in place until the player first acts
-      }
-    }
 
     stretching = input.stretch;
     const { hw, hh } = currentHalfExtents();
