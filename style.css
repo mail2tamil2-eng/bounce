@@ -172,10 +172,17 @@ canvas {
     inset 0 1px 1px rgba(255,255,255,0.15);
 }
 
-.pad.stretch {
+.pad.jump {
   width: 56px;
-  background: linear-gradient(160deg, var(--accent), #7a2e18);
+  background: linear-gradient(160deg, #3fa9e0, #1c6f9c);
   font-size: 20px;
+}
+
+.pad.stretch {
+  width: 120px;
+  height: 40px;
+  background: linear-gradient(160deg, var(--accent), #7a2e18);
+  font-size: 13px;
 }
 
 .pad.stretch.active {
@@ -183,10 +190,14 @@ canvas {
 }
 
 .pad.pause {
-  width: 130px;
+  width: 120px;
   height: 40px;
   font-size: 13px;
   background: linear-gradient(160deg, #5a5a5e, #2c2c2e);
+}
+
+.pad-row.secondary {
+  gap: 10px;
 }
 
 .soft-keys {

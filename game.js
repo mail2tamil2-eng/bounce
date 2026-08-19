@@ -9,6 +9,7 @@
   const overlaySub = overlay.querySelector(".overlay-sub");
   const pauseBtn = document.getElementById("pauseBtn");
   const stretchBtn = document.getElementById("stretchBtn");
+  const jumpBtn = document.getElementById("jumpBtn");
 
   const VIEW_COLS = 12;
   const GRID_H = 16;
@@ -21,8 +22,8 @@
 
   const GRAVITY = 900; // px/s^2
   const MAX_FALL = 620; // px/s
-  const BOUNCE_VELOCITY = -430; // px/s, normal landing bounce
-  const SPRING_VELOCITY = -680; // px/s, spring pad boost
+  const JUMP_VELOCITY = -430; // px/s, applied when the player presses jump while grounded
+  const SPRING_VELOCITY = -680; // px/s, spring pad boost (automatic on contact)
   const MOVE_SPEED = 160; // px/s
   const STEP = CELL * 0.5; // collision sub-step, stays under one cell
 
@@ -49,7 +50,7 @@
   };
 
   let grid, levelWidth, levelIndex, startCol, startRow;
-  let ball, vx, vy, stretching, cameraX;
+  let ball, vx, vy, stretching, cameraX, grounded, jumpQueued;
   let score, lives, running, paused, state;
   let input = { left: false, right: false, stretch: false };
   let lastTime = 0;
@@ -81,6 +82,8 @@
     vx = 0;
     vy = 0;
     stretching = false;
+    grounded = false;
+    jumpQueued = false;
     cameraX = 0;
     updateCamera();
     levelEl.textContent = `LEVEL ${index + 1}`;
@@ -92,6 +95,8 @@
     vx = 0;
     vy = 0;
     stretching = false;
+    grounded = false;
+    jumpQueued = false;
     updateCamera();
   }
 
@@ -171,7 +176,13 @@
         const tile = tileAt(c, row);
         if (isSolid(tile)) {
           ball.y = row * CELL - hh;
-          vy = tile === "F" ? SPRING_VELOCITY : BOUNCE_VELOCITY;
+          if (tile === "F") {
+            vy = SPRING_VELOCITY; // springs still auto-launch on contact
+            grounded = false;
+          } else {
+            vy = 0; // land and rest, no automatic bounce
+            grounded = true;
+          }
           return true;
         }
       }
@@ -274,11 +285,18 @@
     stretching = input.stretch;
     const { hw, hh } = currentHalfExtents();
 
+    if (jumpQueued && grounded) {
+      vy = JUMP_VELOCITY;
+      grounded = false;
+    }
+    jumpQueued = false;
+
     vy += GRAVITY * dt;
     if (vy > MAX_FALL) vy = MAX_FALL;
     vx = ((input.right ? 1 : 0) - (input.left ? 1 : 0)) * MOVE_SPEED;
 
     moveX(vx * dt, hw, hh);
+    grounded = false;
     moveY(vy * dt, hw, hh);
 
     const result = checkPickupsAndHazards(hw, hh);
@@ -506,6 +524,14 @@
       e.preventDefault();
     }
     if (e.code === "ArrowUp" || e.code === "KeyW") {
+      if (!running) {
+        startGame();
+        return;
+      }
+      jumpQueued = true;
+      e.preventDefault();
+    }
+    if (e.code === "ArrowDown" || e.code === "KeyS") {
       input.stretch = true;
       stretchBtn.classList.add("active");
       e.preventDefault();
@@ -515,7 +541,7 @@
   function handleKeyUp(e) {
     if (e.code === "ArrowLeft" || e.code === "KeyA") input.left = false;
     if (e.code === "ArrowRight" || e.code === "KeyD") input.right = false;
-    if (e.code === "ArrowUp" || e.code === "KeyW") {
+    if (e.code === "ArrowDown" || e.code === "KeyS") {
       input.stretch = false;
       stretchBtn.classList.remove("active");
     }
@@ -574,6 +600,19 @@
     stretchBtn.addEventListener("mouseleave", setOff);
   })();
 
+  (function setupJumpButton() {
+    const press = (e) => {
+      e.preventDefault();
+      if (!running) {
+        startGame();
+        return;
+      }
+      jumpQueued = true;
+    };
+    jumpBtn.addEventListener("touchstart", press, { passive: false });
+    jumpBtn.addEventListener("mousedown", press);
+  })();
+
   running = false;
   paused = false;
   state = "start";
@@ -583,7 +622,7 @@
   updateScore();
   updateLives();
   draw();
-  showOverlay("BOUNCE", "Tap ◀▶ to move, hold ↕ to stretch through gaps");
+  showOverlay("BOUNCE", "◀▶ to move, ▲ to jump, hold ↕ to stretch through gaps");
   requestAnimationFrame((t) => {
     lastTime = t;
     requestAnimationFrame(loop);
